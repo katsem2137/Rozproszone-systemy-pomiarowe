@@ -12,6 +12,7 @@ Aktualnie projekt zawiera przygotowane serwisy backendowe uruchamiane przez Dock
 ---
 
 ## Quick Start
+Tu edycja od kasi
 
 Poniższa instrukcja pozwala uruchomić podstawową wersję środowiska projektowego dla systemu rozproszonego.
 
