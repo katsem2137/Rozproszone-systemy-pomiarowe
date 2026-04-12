@@ -2,11 +2,14 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
+#include <time.h>
+#include <sys/time.h>
 #include "secrets.h"
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 String deviceId;
 String topic;
+unsigned long seqCounter = 0;
 String generateDeviceIdFromEfuse() {
 uint64_t chipId = ESP.getEfuseMac();
 char id[32];
@@ -29,6 +32,23 @@ Serial.println("Polaczono z Wi-Fi");
 Serial.print("Adres IP: ");
 Serial.println(WiFi.localIP());
 }
+void syncNTP() {
+  configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+  Serial.print("Synchronizacja NTP");
+  struct tm timeinfo;
+  while (!getLocalTime(&timeinfo)) {
+    Serial.print(".");
+    delay(500);
+  }
+  Serial.println(" OK");
+}
+
+long long getTimestampMs() {
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  return ((long long)tv.tv_sec * 1000LL) + (tv.tv_usec / 1000);
+}
+
 void connectMQTT() {
 mqttClient.setServer(MQTT_HOST, MQTT_PORT);
 while (!mqttClient.connected()) {
@@ -46,11 +66,14 @@ delay(2000);
 
 void publishMeasurement() {
 StaticJsonDocument<256> doc;
+doc["schema_version"] = 1;
+doc["group_id"] = MQTT_GROUP;
 doc["device_id"] = deviceId;
 doc["sensor"] = "temperature";
 doc["value"] = 24.5;
 doc["unit"] = "C";
-doc["ts_ms"] = millis();
+doc["ts_ms"] = getTimestampMs();
+doc["seq"] = seqCounter++;
 char payload[256];
 serializeJson(doc, payload);
 mqttClient.publish(topic.c_str(), payload);
@@ -66,6 +89,7 @@ topic = "lab/" + String(MQTT_GROUP) + "/" + deviceId + "/temperature";
 Serial.print("Device ID: ");
 Serial.println(deviceId);
 connectWiFi();
+syncNTP();
 connectMQTT();
 }
 void loop() {
